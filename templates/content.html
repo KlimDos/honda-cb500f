@@ -2,6 +2,6 @@
 {% block title %}{{title}} | CB500F{% endblock %}
 {% block content %}
   <h1 class="page-title">{{title}}</h1>
-  <pre class="plaintext card elevate">{{content}}</pre>
+  <article class="markdown-body card elevate">{{ html_content | safe }}</article>
 {% endblock %}
 
