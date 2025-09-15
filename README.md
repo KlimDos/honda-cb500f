@@ -65,6 +65,33 @@ curl -X POST -F year=2019 -F mileage=14000 -F price=4700 -F region=NJ -F conditi
 ```
 Вы получите HTML (форма + результат). Для JSON эндпоинта можно добавить отдельный `/api/evaluate` (TODO расширение).
 
+## CI/CD: GitHub Actions Docker Publish
+
+Репозиторий содержит workflow `.github/workflows/docker-publish.yml` который:
+* Триггеры: push в `main`, теги вида `v*.*.*`, pull request, ручной запуск.
+* Строит multi-arch образ (linux/amd64, linux/arm64) с Docker Buildx.
+* Генерирует теги: `latest` (для default branch), имя ветки, семантический тег, SHA.
+* Пушит в Docker Hub.
+
+### Требуемые секреты GitHub
+В настройках репозитория `Settings -> Secrets and variables -> Actions` создайте:
+* `DOCKERHUB_USERNAME` — ваш логин Docker Hub
+* `DOCKERHUB_TOKEN` — токен/пароль access token с правами push
+
+### Локальная проверка перед пушем тега
+```
+docker build -t cb500f-toolkit:dev .
+docker run --rm -p 8000:8000 cb500f-toolkit:dev
+```
+
+### Публикация релиза
+```
+git tag -a v0.1.0 -m "First release"
+git push origin v0.1.0
+```
+Workflow создаст соответствующие теги образа.
+
+
 ## Возможные улучшения фронтенда (идея)
 * Рендер markdown в HTML (mistune / markdown2) вместо `<pre>`.
 * Client-side сохранение последнего ввода (localStorage).
