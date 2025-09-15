@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}CB500F Toolkit{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">CB500F <span>Market</span></div>
+    <nav class="main-nav">
+      <a href="/">Calculator</a>
+      <a href="/methodology">Methodology</a>
+      <a href="/strategy">FB Strategy</a>
+    </nav>
+    <button id="themeToggle" aria-label="Toggle theme">🌗</button>
+  </header>
+  <main class="content-wrapper">{% block content %}{% endblock %}</main>
+  <footer class="site-footer">
+    <small>&copy; 2025 CB500F Toolkit. Update quarterly.</small>
+  </footer>
+  <script>
+  // Simple theme toggle
+  const btn = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if(saved){ root.setAttribute('data-theme', saved); }
+  btn.addEventListener('click', ()=>{
+    const cur = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', cur); localStorage.setItem('theme', cur);
+  });
+  </script>
+  {% block body_extra %}{% endblock %}
+</body>
+</html>

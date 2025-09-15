@@ -1,19 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>CB500F Deal Evaluator</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <nav>
-    <a href="/">Calculator</a>
-    <a href="/methodology">Methodology</a>
-    <a href="/strategy">FB Strategy</a>
-    <a href="https://github.com" target="_blank">GitHub</a>
-  </nav>
-  <h1>Honda CB500F Deal Evaluator</h1>
-  <form method="post" class="grid-form">
+{% extends 'base.html' %}
+{% block title %}CB500F Deal Evaluator{% endblock %}
+{% block content %}
+  <h1 class="page-title">Honda CB500F Deal Evaluator</h1>
+  <form method="post" class="grid-form card elevate" autocomplete="on">
     <label>Year <input type="number" name="year" required value="{{ result.year if result else '' }}" /></label>
     <label>Mileage (mi) <input type="number" name="mileage" required value="{{ result.mileage if result else '' }}" /></label>
     <label>Asking Price ($) <input type="number" name="price" step="0.01" required value="{{ result.asking if result else '' }}" /></label>
@@ -31,33 +20,44 @@
         {% endfor %}
       </select>
     </label>
-    <fieldset class="accessories">
+    <fieldset class="accessories field-group">
       <legend>Accessories</legend>
       {% for acc,val in accessories.items() %}
-        <label><input type="checkbox" name="{{acc}}" {% if result and result.selected_accessories[acc] %}checked{% endif %}> {{acc}}</label>
+        <label class="chip"><input type="checkbox" name="{{acc}}" {% if result and result.selected_accessories[acc] %}checked{% endif %}> {{acc}}</label>
       {% endfor %}
     </fieldset>
-    <button type="submit">Evaluate</button>
+    <div class="actions">
+      <button type="submit" class="btn primary">Evaluate</button>
+      <button type="reset" class="btn subtle" onclick="document.querySelectorAll('form input[type=checkbox]').forEach(c=>c.checked=false)">Reset</button>
+    </div>
   </form>
 
   {% if result %}
-  <section class="result">
-    <h2>Result: {{ result.classification }}</h2>
-    <p>Fair Value: <strong>${{ '%.0f'|format(result.fair) }}</strong></p>
-    <p>Recommended Offer Band: ${{ '%.0f'|format(result.band[0]) }} - ${{ '%.0f'|format(result.band[1]) }}</p>
-    <details>
+  <section class="result card elevate">
+    <div class="result-header">
+      {% set cls = result.classification %}
+      <h2>Result <span class="badge {{ cls|lower|replace(' ', '-') }}">{{ cls }}</span></h2>
+    </div>
+    <div class="result-metrics">
+      <div class="metric"><span>Fair Value</span><strong>${{ '%.0f'|format(result.fair) }}</strong></div>
+      <div class="metric"><span>Offer Band</span><strong>${{ '%.0f'|format(result.band[0]) }} - {{ '%.0f'|format(result.band[1]) }}</strong></div>
+      <div class="metric"><span>Year</span><strong>{{ result.year }}</strong></div>
+      <div class="metric"><span>Mileage</span><strong>{{ result.mileage }}</strong></div>
+      <div class="metric"><span>Region</span><strong>{{ result.region }}</strong></div>
+      <div class="metric"><span>Condition</span><strong>{{ result.condition }}</strong></div>
+    </div>
+    <details class="breakdown">
       <summary>Breakdown</summary>
-      <ul>
+      <table class="breakdown-table">
+        <thead><tr><th>Component</th><th>Value</th></tr></thead>
+        <tbody>
         {% for k,v in result.components.items() %}
-          <li>{{k}}: {{ '%.2f'|format(v) if v is number else v }}</li>
+          <tr><td>{{k}}</td><td>{{ '%.2f'|format(v) if v is number else v }}</td></tr>
         {% endfor %}
-      </ul>
+        </tbody>
+      </table>
     </details>
   </section>
   {% endif %}
+{% endblock %}
 
-  <footer>
-    <small>Model reference only. Update quarterly. &copy; 2025</small>
-  </footer>
-</body>
-</html>

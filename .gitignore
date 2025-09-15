@@ -1,0 +1,80 @@
+# ---- Python / Build Artifacts ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+
+# Byte-compiled / cache
+.mypy_cache/
+.pytest_cache/
+.cache/
+.tox/
+.pytype/
+.dmypy.json
+pyrightconfig.json.tmp
+
+# Testing / Coverage
+coverage.xml
+.coverage
+.coverage.*
+htmlcov/
+test-results/
+
+# Logs
+logs/
+*.log
+*.log.*
+nohup.out
+
+# Environment / Secrets
+*.env
+.env.*
+secrets/
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# macOS / OS
+.DS_Store
+Thumbs.db
+*.icloud
+
+# Node (future front-end additions)
+node_modules/
+*.tsbuildinfo
+
+# Static build caches
+static/.cache/
+
+# Docker / Compose overrides (optional local files)
+docker-compose.override.yml
+
+# Kubernetes generated overlays
+k8s/*.generated.yaml
+
+# Data scratch / temp (keep reference CSVs!)
+data/*.tmp
+data/*_raw.csv
+
+# Misc
+*.pid
+*.orig
+*.bak
+*.rej
+MANIFEST
