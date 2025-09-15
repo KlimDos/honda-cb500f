@@ -39,11 +39,10 @@ async def calc(request: Request,
                mileage: int = Form(...),
                price: float = Form(...),
                region: str = Form(...),
-               condition: str = Form(...),
-               **kwargs):
-    accessories = {}
-    for acc in ACCESSORY_VALUES:
-        accessories[acc] = kwargs.get(acc) == 'on'
+               condition: str = Form(...)):
+    # Собираем остальные checkbox поля вручную (FastAPI не поддерживает произвольный **kwargs для формы)
+    form = await request.form()
+    accessories = {acc: (form.get(acc) == 'on') for acc in ACCESSORY_VALUES}
     data = calc_fair_value(year, mileage, region, condition, accessories)
     fair = data['fair_value']
     classification = classify(price, fair)

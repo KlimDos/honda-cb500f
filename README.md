@@ -91,6 +91,48 @@ git push origin v0.1.0
 ```
 Workflow создаст соответствующие теги образа.
 
+## Kubernetes Deployment
+
+В каталоге `k8s/` находятся манифесты для деплоя:
+
+Файлы:
+* `namespace.yaml` — Namespace `cb500f`.
+* `configmap.yaml` — базовые переменные (можно расширить).
+* `deployment.yaml` — деплой приложения (реплики=2, probes, ресурсы).
+* `service.yaml` — Service (ClusterIP порт 80 -> 8000).
+* `ingress.yaml` — Ingress (пример с host `cb500f.example.com`, аннотации nginx + cert-manager).
+* `hpa.yaml` — HorizontalPodAutoscaler (cpu 65%, memory 70%, 2–6 реплик).
+* `kustomization.yaml` — сборка через Kustomize.
+
+Перед применением замените `USERNAME_PLACEHOLDER` на ваш Docker Hub пользователь.
+
+### Быстрый деплой
+```
+kubectl apply -k k8s/
+```
+
+### Проверка
+```
+kubectl -n cb500f get pods
+kubectl -n cb500f get ingress
+```
+
+### Обновление образа
+```
+kubectl -n cb500f set image deployment/cb500f cb500f=docker.io/<username>/cb500f-toolkit:<tag>
+```
+
+### Шаблон patch для смены реплик
+```
+kubectl -n cb500f scale deployment cb500f --replicas=3
+```
+
+### Варианты улучшений
+* Добавить `PodDisruptionBudget`.
+* Включить `resources.limits`/`requests` динамически через kustomize overlay.
+* Добавить `NetworkPolicy` для ограничения исходящих соединений.
+* Вынести host в отдельный `kustomization` overlay (prod/stage).
+
 
 ## Возможные улучшения фронтенда (идея)
 * Рендер markdown в HTML (mistune / markdown2) вместо `<pre>`.
