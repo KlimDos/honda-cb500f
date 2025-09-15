@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CB500F Deal Evaluator</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="/">Calculator</a>
+    <a href="/methodology">Methodology</a>
+    <a href="/strategy">FB Strategy</a>
+    <a href="https://github.com" target="_blank">GitHub</a>
+  </nav>
+  <h1>Honda CB500F Deal Evaluator</h1>
+  <form method="post" class="grid-form">
+    <label>Year <input type="number" name="year" required value="{{ result.year if result else '' }}" /></label>
+    <label>Mileage (mi) <input type="number" name="mileage" required value="{{ result.mileage if result else '' }}" /></label>
+    <label>Asking Price ($) <input type="number" name="price" step="0.01" required value="{{ result.asking if result else '' }}" /></label>
+    <label>Region
+      <select name="region" required>
+        {% for r in regions %}
+          <option value="{{r}}" {% if result and result.region==r %}selected{% endif %}>{{r}}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Condition
+      <select name="condition" required>
+        {% for c in conditions %}
+          <option value="{{c}}" {% if result and result.condition==c %}selected{% endif %}>{{c}}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <fieldset class="accessories">
+      <legend>Accessories</legend>
+      {% for acc,val in accessories.items() %}
+        <label><input type="checkbox" name="{{acc}}" {% if result and result.selected_accessories[acc] %}checked{% endif %}> {{acc}}</label>
+      {% endfor %}
+    </fieldset>
+    <button type="submit">Evaluate</button>
+  </form>
+
+  {% if result %}
+  <section class="result">
+    <h2>Result: {{ result.classification }}</h2>
+    <p>Fair Value: <strong>${{ '%.0f'|format(result.fair) }}</strong></p>
+    <p>Recommended Offer Band: ${{ '%.0f'|format(result.band[0]) }} - ${{ '%.0f'|format(result.band[1]) }}</p>
+    <details>
+      <summary>Breakdown</summary>
+      <ul>
+        {% for k,v in result.components.items() %}
+          <li>{{k}}: {{ '%.2f'|format(v) if v is number else v }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </section>
+  {% endif %}
+
+  <footer>
+    <small>Model reference only. Update quarterly. &copy; 2025</small>
+  </footer>
+</body>
+</html>
