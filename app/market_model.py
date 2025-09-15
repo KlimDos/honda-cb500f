@@ -59,6 +59,25 @@ ACCESSORY_LABELS_RU = {
     "alarm_system": ("Сигнализация", "Доп. защита от угона"),
 }
 
+# English labels (compact) for accessories
+ACCESSORY_LABELS_EN = {
+    "abs": ("ABS", "Anti-lock braking system"),
+    "exhaust_brand": ("Aftermarket exhaust", "Brand slip-on/full system"),
+    "crashbars": ("Crash bars", "Protection in tip over"),
+    "windscreen": ("Windscreen", "Better highway comfort"),
+    "heated_grips": ("Heated grips", "Cold weather comfort"),
+    "luggage_quality": ("Hard luggage (brand)", "Quality side + top cases"),
+    "luggage_basic": ("Basic luggage", "Soft/universal bags"),
+    "new_tires": ("New tires", "<500mi"),
+    "fresh_chainkit": ("Chain & sprockets", "Recently replaced"),
+    "phone_mount": ("Phone mount", "Utility"),
+    "aux_lights": ("Aux lights", "Visibility"),
+    "quickshifter": ("Quickshifter", "Faster shifts"),
+    "frame_sliders": ("Frame sliders", "Fall damage mitigation"),
+    "radiator_guard": ("Radiator guard", "Stone protection"),
+    "alarm_system": ("Alarm", "Theft deterrent"),
+}
+
 @dataclass
 class PriceRow:
     year: int
@@ -132,13 +151,22 @@ def calc_fair_value(year: int, mileage: int, region: str, condition: str, access
 
 
 def classify(asking_price: float, fair_value: float, fair_break: float = 4000) -> str:
+    """Classify asking price vs fair value with stricter bands.
+
+    Adjustments (stricter):
+    - Great Deal: <= 0.88 ratio OR (delta <= -350 / -450 depending on fair_break)
+    - Good Deal: <= 0.95 ratio
+    - Fair: <= 1.05 ratio
+    - Else: Overpriced
+    This reduces false 'Good Deal' cases.
+    """
     ratio = asking_price / fair_value
     delta = asking_price - fair_value
-    if ratio <= 0.90 or (fair_value < fair_break and delta <= -300) or (fair_value >= fair_break and delta <= -400):
+    if ratio <= 0.88 or (fair_value < fair_break and delta <= -350) or (fair_value >= fair_break and delta <= -450):
         return "Great Deal"
-    if ratio <= 0.97:
+    if ratio <= 0.95:
         return "Good Deal"
-    if ratio <= 1.07:
+    if ratio <= 1.05:
         return "Fair"
     return "Overpriced"
 

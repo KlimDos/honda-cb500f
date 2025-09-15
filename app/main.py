@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 import pathlib
 from .market_model import (
     REGION_FACTORS, CONDITION_FACTORS, ACCESSORY_VALUES,
-    calc_fair_value, classify, recommended_band, ACCESSORY_LABELS_RU
+    calc_fair_value, classify, recommended_band, ACCESSORY_LABELS_RU, ACCESSORY_LABELS_EN
 )
 import mistune
 
@@ -34,6 +34,7 @@ async def form_page(request: Request):
         "conditions": CONDITION_FACTORS.keys(),
         "accessories": ACCESSORY_VALUES,
         "accessories_ru": ACCESSORY_LABELS_RU,
+        "accessories_en": ACCESSORY_LABELS_EN,
         "result": None,
     })
 
@@ -43,7 +44,9 @@ async def calc(request: Request,
                mileage: int = Form(...),
                price: float = Form(...),
                region: str = Form(...),
-               condition: str = Form(...)):
+               condition: str = Form(...),
+               listing_text: str = Form("")
+               ):
     # Собираем остальные checkbox поля вручную (FastAPI не поддерживает произвольный **kwargs для формы)
     form = await request.form()
     accessories = {acc: (form.get(acc) == 'on') for acc in ACCESSORY_VALUES}
@@ -51,12 +54,15 @@ async def calc(request: Request,
     fair = data['fair_value']
     classification = classify(price, fair)
     band_low, band_high = recommended_band(fair)
+    # Simple heuristic extraction for placeholders (actual analysis added later)
+    analysis = analyze_listing_text(listing_text)
     return templates.TemplateResponse("index.html", {
         "request": request,
         "regions": REGION_FACTORS.keys(),
         "conditions": CONDITION_FACTORS.keys(),
         "accessories": ACCESSORY_VALUES,
         "accessories_ru": ACCESSORY_LABELS_RU,
+        "accessories_en": ACCESSORY_LABELS_EN,
         "result": {
             "fair": fair,
             "classification": classification,
@@ -68,8 +74,73 @@ async def calc(request: Request,
             "region": region,
             "condition": condition,
             "selected_accessories": accessories,
+            "listing_text": listing_text,
+            "analysis": analysis,
         }
     })
+
+
+def analyze_listing_text(text: str) -> dict:
+    """Heuristic analysis of listing text (no external AI calls).
+    Extract keywords, detect red/green flags and generate negotiation hints.
+    """
+    if not text.strip():
+        return {"keywords": [], "flags": [], "questions": [], "negotiation": []}
+    lower = text.lower()
+    keywords = []
+    mapping = {
+        'oem': 'stock', 'stock': 'stock', 'original': 'stock',
+        'garaged': 'garaged', 'garage kept': 'garaged',
+        'drop': 'dropped', 'dropped': 'dropped', 'lay down': 'dropped',
+        'abs': 'abs', 'heated grips': 'heated_grips', 'luggage': 'luggage',
+        'cofry': 'luggage', 'case': 'luggage', 'tires': 'tires', 'new tires': 'new_tires',
+        'chain': 'chain', 'sprocket': 'chain', 'service': 'service', 'maint': 'service',
+        'oil': 'service', 'leak': 'leak', 'issue': 'issue', 'problem': 'issue',
+        'salvage': 'salvage', 'rebuilt': 'rebuilt'
+    }
+    for k, norm in mapping.items():
+        if k in lower:
+            keywords.append(norm)
+    keywords = sorted(set(keywords))
+
+    flags = []
+    if 'salvage' in lower or 'rebuilt' in lower:
+        flags.append('TITLE_RISK')
+    if 'leak' in lower:
+        flags.append('POTENTIAL_LEAK')
+    if 'issue' in lower or 'problem' in lower:
+        flags.append('UNRESOLVED_ISSUE')
+    if 'dropped' in lower or 'lay down' in lower or 'drop' in lower:
+        flags.append('DROPPED_HISTORY')
+
+    questions = []
+    if 'service' not in lower and 'maint' not in lower:
+        questions.append('Запрошите историю обслуживания и даты последней замены масла')
+    if 'chain' in keywords and 'service' not in lower:
+        questions.append('Уточните когда менялись цепь и звезды (пробег)')
+    if 'tires' in lower and 'new tires' not in lower:
+        questions.append('Спросите дату и DOT код шин')
+    if 'garaged' not in lower:
+        questions.append('Хранилась ли в гараже?')
+    if 'abs' not in lower:
+        questions.append('Подтвердить наличие ABS по VIN / фото панели')
+
+    negotiation = []
+    if 'TITLE_RISK' in flags:
+        negotiation.append('Снижайте дополнительно 10-15% за salvage/rebuilt title')
+    if 'DROPPED_HISTORY' in flags:
+        negotiation.append('Осмотрите раму, радиатор, рычаги — аргумент для -150..-300$')
+    if 'POTENTIAL_LEAK' in flags:
+        negotiation.append('Любой намек на течь — просите фото/видео и закладывайте -100..-250$')
+    if 'UNRESOLVED_ISSUE' in flags:
+        negotiation.append('Неясные проблемы => сначала диагностика или скидка на ремонт')
+
+    return {
+        'keywords': keywords,
+        'flags': flags,
+        'questions': questions,
+        'negotiation': negotiation
+    }
 
 @app.post("/api/evaluate")
 async def api_evaluate(payload: dict):

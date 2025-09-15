@@ -1,6 +1,14 @@
 {% extends 'base.html' %}
 {% block title %}CB500F Deal Evaluator{% endblock %}
 {% block content %}
+  <div class="summary-hints card elevate">
+    <div class="hints-row">
+      <span class="pill">РОБЕГ: ±100$/1K (СВЕРХ) / +60$/1K (НИЖЕ)</span>
+      <span class="pill">СОСТОЯНИЕ: +7% / 0% / -8% / -15%</span>
+      <span class="pill">РЕГИОН: NY+3 NJ+3 MD+1 VA+2 PA0</span>
+      <span class="pill">АКСЕССУАРЫ ≤18% BASE</span>
+    </div>
+  </div>
   <h1 class="page-title">Honda CB500F Калькулятор сделки</h1>
   <form method="post" class="grid-form card elevate" autocomplete="on">
     <label>Год <input type="number" name="year" required value="{{ result.year if result else '' }}" /></label>
@@ -21,12 +29,20 @@
       </select>
     </label>
     <fieldset class="accessories field-group">
-      <legend>Accessories</legend>
+      <legend>Accessories / Аксессуары</legend>
       {% for acc,val in accessories.items() %}
         {% set ru = accessories_ru.get(acc) %}
-        <label class="chip" title="{{ ru[1] if ru else acc }}"><input type="checkbox" name="{{acc}}" {% if result and result.selected_accessories[acc] %}checked{% endif %}> {{ ru[0] if ru else acc }}</label>
+        {% set en = accessories_en.get(acc) %}
+        <label class="chip" title="RU: {{ ru[1] if ru else acc }} | EN: {{ en[1] if en else acc }}">
+          <input type="checkbox" name="{{acc}}" {% if result and result.selected_accessories[acc] %}checked{% endif %}>
+          <span class="bilingual"><strong>{{ ru[0] if ru else acc }}</strong><em>{{ en[0] if en else acc }}</em></span>
+        </label>
       {% endfor %}
     </fieldset>
+    <label class="field-group" style="grid-column:1/-1;">
+      Текст объявления / Listing Text
+      <textarea name="listing_text" rows="4" placeholder="Скопируйте сюда текст объявления...">{{ result.listing_text if result and result.listing_text else '' }}</textarea>
+    </label>
     <div class="actions">
       <button type="submit" class="btn primary">Рассчитать</button>
       <button type="reset" class="btn subtle" onclick="document.querySelectorAll('form input[type=checkbox]').forEach(c=>c.checked=false)">Сброс</button>
@@ -58,6 +74,28 @@
         </tbody>
       </table>
     </details>
+  </section>
+  <section class="analysis card elevate">
+    <h2>Анализ объявления / Listing Analysis</h2>
+    {% set a = result.analysis %}
+    {% if a and (a.keywords or a.flags or a.questions or a.negotiation) %}
+      <div class="analysis-grid">
+        <div>
+          <h3>Keywords</h3>
+          {% if a.keywords %}<p class="tags">{% for k in a.keywords %}<span>{{k}}</span>{% endfor %}</p>{% else %}<p class="dim">—</p>{% endif %}
+          <h3>Flags</h3>
+          {% if a.flags %}<ul>{% for f in a.flags %}<li class="flag flag-{{f|lower}}">{{f}}</li>{% endfor %}</ul>{% else %}<p class="dim">—</p>{% endif %}
+        </div>
+        <div>
+          <h3>Вопросы продавцу</h3>
+          {% if a.questions %}<ul>{% for q in a.questions %}<li>{{q}}</li>{% endfor %}</ul>{% else %}<p class="dim">—</p>{% endif %}
+          <h3>Торг / Negotiation</h3>
+          {% if a.negotiation %}<ul>{% for n in a.negotiation %}<li>{{n}}</li>{% endfor %}</ul>{% else %}<p class="dim">—</p>{% endif %}
+        </div>
+      </div>
+    {% else %}
+      <p class="dim">Нет текста объявления для анализа.</p>
+    {% endif %}
   </section>
   {% endif %}
 {% endblock %}
