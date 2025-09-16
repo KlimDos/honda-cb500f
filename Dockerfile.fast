@@ -4,7 +4,8 @@
 FROM mcr.microsoft.com/playwright/python:v1.48.0-jammy as base
 
 # Создаем пользователя (если не существует)
-RUN id appuser || useradd -m -u 1000 appuser
+RUN groupadd -g 1000 appuser && \
+    useradd -m -u 1000 -g 1000 appuser
 
 # Устанавливаем Python зависимости
 COPY requirements.txt /tmp/requirements.txt

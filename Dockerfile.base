@@ -25,8 +25,9 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем пользователя
-RUN useradd -m -u 1000 appuser
+# Создаем пользователя (безопасный способ)
+RUN groupadd -g 1000 appuser && \
+    useradd -m -u 1000 -g 1000 appuser
 
 # Устанавливаем фиксированные Python зависимости
 RUN pip install --no-cache-dir \

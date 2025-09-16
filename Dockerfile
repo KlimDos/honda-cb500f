@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Создаем пользователя
-RUN useradd -m -u 1000 appuser
+RUN groupadd -g 1000 appuser && \
+    useradd -m -u 1000 -g 1000 appuser
 
 # Создаем рабочую директорию
 WORKDIR /app
