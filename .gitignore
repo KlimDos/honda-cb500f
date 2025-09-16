@@ -40,9 +40,13 @@ logs/
 nohup.out
 
 # Environment / Secrets
-*.env
-.env.*
+.env
+.env.local
+.env.production  
 secrets/
+
+# Keep example files
+!.env.example
 
 # Editors / IDE
 .vscode/
@@ -72,6 +76,13 @@ k8s/*.generated.yaml
 # Data scratch / temp (keep reference CSVs!)
 data/*.tmp
 data/*_raw.csv
+
+# Sensitive data files
+data/cookies.json
+data/current_state.json
+
+# Archive/old files
+old/
 
 # Misc
 *.pid

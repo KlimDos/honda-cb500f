@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cb500-monitor
+  namespace: cb500f
+spec:
+  # Запускаем каждый час
+  schedule: "0 * * * *"
+  timezone: "America/New_York"
+  concurrencyPolicy: Forbid  # Не запускаем новые если предыдущие еще работают
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 5
+  startingDeadlineSeconds: 300  # 5 минут на старт
+  
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: cb500-monitor
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: monitor
+            image: klimdos/cb500-monitor:latest  # Будет собираться GitHub Actions
+            imagePullPolicy: Always
+            
+            env:
+            - name: DATA_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: cb500-monitor-config
+                  key: DATA_DIR
+            - name: COOKIES_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cb500-monitor-config
+                  key: COOKIES_PATH
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cb500-monitor-secrets
+                  key: TELEGRAM_CHAT_ID
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cb500-monitor-secrets
+                  key: TELEGRAM_BOT_TOKEN
+            
+            volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+            
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+          
+          volumes:
+          - name: data-volume
+            persistentVolumeClaim:
+              claimName: cb500-monitor-data

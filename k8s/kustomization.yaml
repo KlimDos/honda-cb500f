@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1apiVersion: kustomize.config.k8s.io/v1beta1apiVersion: kustomize.config.k8s.io/v1beta1
+
+kind: Kustomization
+
+kind: Kustomizationkind: Kustomization
+
+namespace: cb500f
+
+
+
+resources:
+
+  - namespace.yamlnamespace: cb500fnamespace: cb500f
+
+  - pvc.yaml
+
+  - configmap.yaml
+
+  - secret.yaml
+
+  - cronjob.yamlresources:resources:
+
+
+
+# Автоматическая замена образа при CI/CD  - namespace.yaml  - namespace.yaml
+
+images:
+
+  - name: klimdos/cb500-monitor  - pvc.yaml  - pvc.yaml
+
+    newTag: latest
+  - configmap.yaml  - configmap.yaml
+
+  - secret.yaml  - secret.yaml
+
+  - cronjob.yaml  - cronjob.yaml
+
+
+
+# Автоматическая замена образа при CI/CD# Автоматическая замена образа при CI/CD
+
+images:images:
+
+  - name: klimdos/cb500-monitor  - name: klimdos/cb500-monitor
+
+    newTag: latest    newTag: latest

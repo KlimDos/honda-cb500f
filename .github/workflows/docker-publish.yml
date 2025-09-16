@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: honda-cb500f
+  IMAGE_NAME: cb500-monitor
   REGISTRY: docker.io
 
 jobs:
@@ -21,6 +21,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify project structure
+        run: |
+          echo "Checking project structure..."
+          ls -la
+          test -f Dockerfile || (echo "❌ Dockerfile not found" && exit 1)
+          test -d src || (echo "❌ src/ directory not found" && exit 1)
+          test -f requirements.txt || (echo "❌ requirements.txt not found" && exit 1)
+          test -f .env.example || (echo "❌ .env.example not found" && exit 1)
+          echo "✅ Project structure OK"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -49,6 +59,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}

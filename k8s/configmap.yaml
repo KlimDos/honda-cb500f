@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cb500-monitor-config
+  namespace: cb500f
+data:
+  DATA_DIR: "/app/data"
+  COOKIES_PATH: "/app/data/cookies.json"
+  LOG_LEVEL: "INFO"

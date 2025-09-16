@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-09-16T14:27:02.948978",
+  "count": 2,
+  "listings": [
+    {
+      "listing_id": "1984086672351158",
+      "title": "$5,495",
+      "price_text": "2023 Honda cb500f",
+      "location": "Dover, DE",
+      "url": "https://www.facebook.com/marketplace/item/1984086672351158/?ref=search&referral_code=null&referral_story_type=post&tracking=browse_serp%3Ae93db864-9969-4e50-a89b-7b26d654fbeb&__tn__=!%3AD",
+      "image": "https://scontent-lga3-2.xx.fbcdn.net/v/t45.5328-4/543979883_1063459835594149_2525752368164884368_n.jpg?stp=c20.0.512.512a_dst-jpg_p552x414_tt6&_nc_cat=105&ccb=1-7&_nc_sid=247b10&_nc_ohc=B8XmArfPCYQQ7kNvwFO3wdV&_nc_oc=AdmlZD7-5tWYa2w8y4PrBdKGZzEYuTLbgpusc6NfnjcZKo9al2IzPoIAiNuYK-Fnsdc&_nc_zt=23&_nc_ht=scontent-lga3-2.xx&_nc_gid=7FnDlSH2TfDEgvAeXLTCLA&oh=00_AfbPcfhinwnb7nSo7qj-u7vLSfwh5VTnNiwfLKYymvGayg&oe=68CF65F4",
+      "description": "",
+      "listed_date": "",
+      "listed_date_parsed": "",
+      "scraped_at": 1758047237.1838222,
+      "search_region": "New York Metro",
+      "search_query": "cb500f"
+    },
+    {
+      "listing_id": "1469810090903514",
+      "title": "$5,500",
+      "price_text": "2022 Honda cb500f",
+      "location": "Long Valley, NJ",
+      "url": "https://www.facebook.com/marketplace/item/1469810090903514/?ref=search&referral_code=null&referral_story_type=post&tracking=browse_serp%3Ae93db864-9969-4e50-a89b-7b26d654fbeb&__tn__=!%3AD",
+      "image": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-6/547189756_2572949739718980_8073442683596377489_n.jpg?stp=c0.169.1537.1537a_dst-jpg_s565x565_tt6&_nc_cat=100&ccb=1-7&_nc_sid=454cf4&_nc_ohc=rPJqC-I8KbgQ7kNvwFVnmLh&_nc_oc=AdkXHxA7M0qNa8RGJtYQycXZxbgMLFZs65AO_LqF_JjgN_ISAeGMhwatHFpcHCW1qCc&_nc_zt=23&_nc_ht=scontent-lga3-2.xx&_nc_gid=J9h82XRCMqX7aOVSoeWmtw&oh=00_AfZSLVDvBaDdwUTYrSolPdgyrUBLJc7zl_KPKqP8IYDzKw&oe=68CF978E",
+      "description": "",
+      "listed_date": "",
+      "listed_date_parsed": "",
+      "scraped_at": 1758047237.3265998,
+      "search_region": "New York Metro",
+      "search_query": "cb500f"
+    }
+  ]
+}
