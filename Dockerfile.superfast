@@ -1,0 +1,17 @@
+# СТРАТЕГИЯ 3: Супер-быстрый билд с базовым образом
+
+# Используем собственный предварительно собранный базовый образ
+FROM klimdos/cb500-base:latest
+
+# Копируем только код приложения (ОЧЕНЬ БЫСТРО)
+COPY src/ ./src/
+COPY src/view_database.py ./view_database.py
+
+# Создаем директорию для данных и настраиваем права
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
+
+# Переключаемся на пользователя appuser
+USER appuser
+
+# Команда по умолчанию
+CMD ["python", "src/monitor.py"]

@@ -7,3 +7,5 @@ data:
   DATA_DIR: "/app/data"
   COOKIES_PATH: "/app/data/cookies.json"
   LOG_LEVEL: "INFO"
+  VERBOSE_LOGGING: "false"  # Установить "true" для детального логирования
+  DAYS_SINCE_LISTED: "14"   # Количество дней для поиска объявлений (7, 14, 30)

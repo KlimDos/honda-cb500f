@@ -1,0 +1,35 @@
+# СТРАТЕГИЯ 2: Базовый образ + быстрая сборка приложения
+
+# Используем готовый образ с Playwright (microsoft предоставляет)
+FROM mcr.microsoft.com/playwright/python:v1.48.0-jammy as base
+
+# Создаем пользователя (если не существует)
+RUN id appuser || useradd -m -u 1000 appuser
+
+# Устанавливаем Python зависимости
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Финальный этап - только код приложения
+FROM base as app
+
+WORKDIR /app
+
+# Копируем исходный код
+COPY src/ ./src/
+COPY src/view_database.py ./view_database.py
+
+# Создаем директорию для данных и настраиваем права
+RUN mkdir -p /app/data
+RUN chown -R appuser:appuser /app
+
+# Устанавливаем переменные окружения
+ENV DATA_DIR=/app/data
+ENV COOKIES_PATH=/app/data/cookies.json
+ENV PYTHONPATH=/app/src
+
+# Переключаемся на пользователя appuser
+USER appuser
+
+# Команда по умолчанию
+CMD ["python", "src/monitor.py"]

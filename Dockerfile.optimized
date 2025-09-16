@@ -1,0 +1,63 @@
+# СТРАТЕГИЯ 1: Многоступенчатый билд с базовым образом
+
+# Этап 1: Базовый образ с зависимостями (кэшируется долго)
+FROM python:3.11-slim as base
+
+# Устанавливаем системные зависимости для Playwright
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    ca-certificates \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    libcups2 \
+    libxfixes3 \
+    libpango-1.0-0 \
+    libcairo2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создаем пользователя
+RUN useradd -m -u 1000 appuser
+
+# Устанавливаем Python зависимости (кэшируется при изменении requirements.txt)
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Устанавливаем Playwright и браузеры
+RUN pip install playwright
+USER appuser
+RUN playwright install chromium
+USER root
+
+# Этап 2: Приложение (пересобирается при изменении кода)
+FROM base as app
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем исходный код
+COPY src/ ./src/
+COPY src/view_database.py ./view_database.py
+
+# Создаем директорию для данных и настраиваем права
+RUN mkdir -p /app/data
+RUN chown -R appuser:appuser /app
+
+# Устанавливаем переменные окружения
+ENV DATA_DIR=/app/data
+ENV COOKIES_PATH=/app/data/cookies.json
+ENV PYTHONPATH=/app/src
+
+# Переключаемся на пользователя appuser
+USER appuser
+
+# Команда по умолчанию
+CMD ["python", "src/monitor.py"]

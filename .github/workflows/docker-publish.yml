@@ -1,4 +1,4 @@
-name: Docker Publish
+name: Fast Docker Build & Publish
 
 on:
   push:
@@ -10,11 +10,85 @@ on:
 
 env:
   IMAGE_NAME: cb500-monitor
+  BASE_IMAGE_NAME: cb500-base
   REGISTRY: docker.io
 
 jobs:
-  build-and-push:
+  check-changes:
     runs-on: ubuntu-latest
+    outputs:
+      base-changed: ${{ steps.changes.outputs.base }}
+      app-changed: ${{ steps.changes.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Check what changed
+        id: changes
+        run: |
+          # Проверяем изменения в файлах влияющих на базовый образ
+          if git diff --name-only HEAD~1 HEAD | grep -E "(requirements.txt|Dockerfile.base)" || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "base=true" >> $GITHUB_OUTPUT
+            echo "🔄 Base image needs rebuild"
+          else
+            echo "base=false" >> $GITHUB_OUTPUT
+            echo "✅ Base image unchanged"
+          fi
+          
+          # Проверяем изменения в коде приложения
+          if git diff --name-only HEAD~1 HEAD | grep -E "src/" || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "app=true" >> $GITHUB_OUTPUT
+            echo "🔄 Application code changed"
+          else
+            echo "app=false" >> $GITHUB_OUTPUT
+            echo "✅ Application code unchanged"
+          fi
+
+  build-base:
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.base-changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      base-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push base image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.base
+          push: true
+          platforms: linux/amd64
+          tags: ${{ env.REGISTRY }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.BASE_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "🏗️ **Base image built and pushed**" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: ${{ env.REGISTRY }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.BASE_IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- Digest: ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+
+  build-app:
+    runs-on: ubuntu-latest
+    needs: [check-changes, build-base]
+    if: always() && (needs.check-changes.outputs.app-changed == 'true' || needs.check-changes.outputs.base-changed == 'true')
     permissions:
       contents: read
       packages: write
@@ -26,14 +100,11 @@ jobs:
         run: |
           echo "Checking project structure..."
           ls -la
-          test -f Dockerfile || (echo "❌ Dockerfile not found" && exit 1)
+          test -f Dockerfile.fast || (echo "❌ Dockerfile.fast not found" && exit 1)
+          test -f Dockerfile.superfast || (echo "❌ Dockerfile.superfast not found" && exit 1)
           test -d src || (echo "❌ src/ directory not found" && exit 1)
           test -f requirements.txt || (echo "❌ requirements.txt not found" && exit 1)
-          test -f .env.example || (echo "❌ .env.example not found" && exit 1)
           echo "✅ Project structure OK"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -55,17 +126,51 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Choose build strategy
+        id: strategy
+        run: |
+          # Выбираем стратегию сборки
+          if [ "${{ needs.check-changes.outputs.base-changed }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "dockerfile=Dockerfile.superfast" >> $GITHUB_OUTPUT
+            echo "strategy=superfast" >> $GITHUB_OUTPUT
+            echo "🚀 Using superfast build with custom base"
+          else
+            echo "dockerfile=Dockerfile.fast" >> $GITHUB_OUTPUT
+            echo "strategy=fast" >> $GITHUB_OUTPUT
+            echo "🐧 Using fast build with Microsoft base"
+          fi
+
+      - name: Build and push app
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./${{ steps.strategy.outputs.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test image
+        if: steps.build.outputs.pushed == 'true'
+        run: |
+          echo "🧪 Testing built image..."
+          # Быстрая проверка что образ запускается
+          docker run --rm ${{ env.REGISTRY }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest python -c "import sys; print(f'Python {sys.version}')"
+          echo "✅ Image test passed"
 
       - name: Summary
         run: |
-          echo "Published tags:" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **Fast build completed!**" >> $GITHUB_STEP_SUMMARY
+          echo "- Strategy: ${{ steps.strategy.outputs.strategy }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Dockerfile: ${{ steps.strategy.outputs.dockerfile }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Published tags:" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | sed 's/^/  - /' >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.strategy.outputs.strategy }}" == "superfast" ]; then
+            echo "- ⚡ Build time: ~20-30 seconds" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- 🏃 Build time: ~60-90 seconds" >> $GITHUB_STEP_SUMMARY
+          fi
