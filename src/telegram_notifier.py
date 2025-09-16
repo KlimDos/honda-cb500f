@@ -96,7 +96,7 @@ class TelegramNotifier:
                 short_desc += "..."
             info_lines.append(f"📝 {short_desc}")
         
-        return "\\n".join(info_lines)
+        return "\n".join(info_lines)
     
     async def _send_message(self, message: str, parse_mode: str = None):
         """Отправляет сообщение в Telegram"""
@@ -131,11 +131,11 @@ class TelegramNotifier:
         info = self._format_listing_info(listing)
         url = listing.get('url', 'N/A')
         
-        message = f"""🆕 <b>Новое объявление</b>
+        message = f"""🆕 Новое объявление
 
 {info}
 
-🔗 <a href="{url}">Смотреть на Facebook</a>"""
+🔗 Смотреть: {url}"""
         
         return await self._send_message(message)
     
@@ -143,12 +143,53 @@ class TelegramNotifier:
         """Отправляет уведомление об удаленном объявлении"""
         info = self._format_listing_info(listing)
         
-        message = f"""❌ <b>Объявление больше не доступно</b>
+        message = f"""❌ Объявление больше не доступно
 
 {info}
 
 Возможно, продано или снято с продажи."""
         
+        await self._send_message(message)
+    
+    async def send_changes_summary(self, changes: List, new_count: int, removed_count: int, price_change_count: int):
+        """Отправляет сводку изменений одним сообщением"""
+        summary_lines = [
+            "📊 СВОДКА ИЗМЕНЕНИЙ",
+            ""
+        ]
+        
+        if new_count > 0:
+            summary_lines.append(f"🆕 Новых объявлений: {new_count}")
+            
+            # Добавляем детали новых объявлений
+            for change in changes:
+                if change.change_type == 'new':
+                    listing = change.new_data
+                    info = self._format_listing_info(listing)
+                    url = listing.get('url', '')
+                    summary_lines.append(f"")
+                    summary_lines.append(info)
+                    summary_lines.append(f"🔗 {url}")
+        
+        if removed_count > 0:
+            summary_lines.append(f"")
+            summary_lines.append(f"❌ Удаленных объявлений: {removed_count}")
+        
+        if price_change_count > 0:
+            summary_lines.append(f"")
+            summary_lines.append(f"💰 Изменений цены: {price_change_count}")
+            
+            # Добавляем детали изменений цены
+            for change in changes:
+                if change.change_type == 'price_change':
+                    old_price = self._extract_price(f"{change.old_data.get('title', '')} {change.old_data.get('price_text', '')}")
+                    new_price = self._extract_price(f"{change.new_data.get('title', '')} {change.new_data.get('price_text', '')}")
+                    
+                    if old_price and new_price:
+                        direction = "📈" if new_price > old_price else "📉"
+                        summary_lines.append(f"{direction} ${old_price:,.0f} → ${new_price:,.0f}")
+        
+        message = "\n".join(summary_lines)
         await self._send_message(message)
     
     async def send_price_change(self, old_listing: Dict[str, Any], new_listing: Dict[str, Any], price_diff: float):
@@ -173,14 +214,14 @@ class TelegramNotifier:
             change_text = "Цена изменена"
             price_line = f"Старая: {old_listing.get('price_text', 'N/A')} → Новая: {new_listing.get('price_text', 'N/A')}"
         
-        message = f"""{direction} <b>Изменение цены</b>
+        message = f"""{direction} Изменение цены
 
 {info}
 
 💰 {price_line}
 📊 {change_text}
 
-🔗 <a href="{url}">Смотреть на Facebook</a>"""
+🔗 Смотреть: {url}"""
         
         await self._send_message(message)
     
@@ -210,7 +251,7 @@ class TelegramNotifier:
    • Минимум: ${min_price:,.0f}
    • Максимум: ${max_price:,.0f}"""
         
-        message = f"""📊 <b>Ежедневная сводка</b>
+        message = f"""📊 Ежедневная сводка
 
 🏍 Всего объявлений: {total_count}
    • CB500F: {cb500f_count}
@@ -223,7 +264,7 @@ class TelegramNotifier:
     
     async def send_error(self, error_message: str):
         """Отправляет уведомление об ошибке"""
-        message = f"""⚠️ <b>Ошибка мониторинга</b>
+        message = f"""⚠️ Ошибка мониторинга
 
 {error_message}
 

@@ -106,6 +106,40 @@ class FacebookMarketplaceScraper:
         except Exception:
             return relative_str
     
+    def _split_concatenated_field(self, text: str) -> Dict[str, str]:
+        """Разделяет склеенное поле на составляющие"""
+        result = {
+            'price': '',
+            'location': '',
+            'clean_title': ''
+        }
+        
+        # Поиск цены
+        price_matches = re.findall(r'\$\d{1,2}(?:,\d{3})*|\$\d{3,6}', text)
+        if price_matches:
+            result['price'] = ' '.join(price_matches)
+            # Удаляем цены из текста
+            for price in price_matches:
+                text = text.replace(price, ' ')
+        
+        # Поиск локации (штат + город)
+        location_pattern = r'([A-Za-z\s]+,\s*(?:NY|NJ|PA|CT|MA|DE|MD|VA|FL|NC|SC)(?:\s*\d+K?\s*miles?)?)'
+        location_match = re.search(location_pattern, text)
+        if location_match:
+            result['location'] = location_match.group(1).strip()
+            text = text.replace(location_match.group(0), ' ')
+        
+        # Оставшийся текст как title
+        # Удаляем лишние пробелы и оставляем осмысленную часть
+        clean_parts = []
+        for part in text.split():
+            if len(part) > 2 and not part.isdigit():
+                clean_parts.append(part)
+        
+        result['clean_title'] = ' '.join(clean_parts[:6])  # Ограничиваем 6 словами
+        
+        return result
+    
     async def _extract_listings_from_page(self, page: Page, verbose: bool = False) -> List[Listing]:
         """Извлекает объявления со страницы"""
         results = []
@@ -174,6 +208,17 @@ class FacebookMarketplaceScraper:
                         if '$' not in line and len(line) > 5 and not any(word in line.lower() for word in ['ago', 'day', 'week']):
                             title = line
                             break
+                
+                # Улучшенная обработка склеенных полей
+                if len(title) > 80 and ('$' in title or 'honda' in title.lower()):
+                    # Попытка разделить склеенное поле
+                    title_parts = self._split_concatenated_field(title)
+                    if title_parts['price'] and not price_text:
+                        price_text = title_parts['price']
+                    if title_parts['location'] and not location:
+                        location = title_parts['location']
+                    if title_parts['clean_title']:
+                        title = title_parts['clean_title']
                 
                 # Извлекаем изображение
                 img_element = await anchor.query_selector('img')

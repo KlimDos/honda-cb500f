@@ -80,6 +80,8 @@ class CB500Monitor:
         self.storage = DataStorage(data_dir)
         self.scraper = FacebookMarketplaceScraper(cookies_path)
         self.telegram = TelegramNotifier()
+        self.verbose_logging = os.getenv('VERBOSE_LOGGING', 'false').lower() == 'true'
+        self.days_since_listed = int(os.getenv('DAYS_SINCE_LISTED', '14'))
         
         # Обеспечиваем существование директории данных
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -128,7 +130,7 @@ class CB500Monitor:
         """Скрапит объявления в одном регионе"""
         url = f"https://www.facebook.com/marketplace/{region.market_id}/search"
         params = {
-            "daysSinceListed": "7",  # За последнюю неделю
+            "daysSinceListed": str(self.days_since_listed),  # Настраиваемый диапазон
             "query": query,
             "sortBy": "creation_time_descend",
             "exact": "false"
@@ -136,12 +138,15 @@ class CB500Monitor:
         
         try:
             logger.info(f"Scraping {region.name} for '{query}'")
-            listings = await self.scraper.scrape_search(url, params)
+            listings = await self.scraper.scrape_search(url, params, verbose=self.verbose_logging)
             
             # Фильтруем релевантные объявления
             relevant = [listing for listing in listings if self.is_relevant_listing(listing)]
             
-            logger.info(f"Found {len(relevant)} relevant listings in {region.name}")
+            if self.verbose_logging:
+                logger.info(f"Found {len(listings)} total listings, {len(relevant)} relevant in {region.name}")
+            else:
+                logger.info(f"Found {len(relevant)} relevant listings in {region.name}")
             return relevant
             
         except Exception as e:
@@ -153,11 +158,14 @@ class CB500Monitor:
         """Скрапит все регионы и запросы"""
         all_listings = []
         seen_ids = set()
+        region_stats = {}
         
         for region in self.SEARCH_REGIONS:
+            region_count = 0
             for query in self.SEARCH_QUERIES:
                 try:
                     listings = await self.scrape_region(region, query)
+                    region_count += len(listings)
                     
                     # Избегаем дубликатов
                     for listing in listings:
@@ -174,8 +182,16 @@ class CB500Monitor:
                 except Exception as e:
                     logger.error(f"Error in region {region.name}, query '{query}': {e}")
                     continue
+            
+            region_stats[region.name] = region_count
+            if region_count > 0:
+                logger.info(f"Region {region.name}: {region_count} total listings found")
         
+        # Логируем общую статистику
         logger.info(f"Total unique listings found: {len(all_listings)}")
+        logger.info(f"Regional breakdown: {region_stats}")
+        logger.info(f"Duplicates removed: {sum(region_stats.values()) - len(all_listings)}")
+        
         return all_listings
     
     def detect_changes(self, old_listings: Dict[str, Dict], new_listings: List[Dict]) -> List[ListingChange]:
@@ -222,20 +238,19 @@ class CB500Monitor:
     
     async def send_change_notifications(self, changes: List[ListingChange]):
         """Отправляет уведомления об изменениях"""
-        for change in changes:
-            try:
-                if change.change_type == 'new':
-                    await self.telegram.send_new_listing(change.new_data)
-                elif change.change_type == 'removed':
-                    await self.telegram.send_removed_listing(change.old_data)
-                elif change.change_type == 'price_change':
-                    await self.telegram.send_price_change(change.old_data, change.new_data, change.price_diff)
-                
-                # Небольшая задержка между сообщениями
-                await asyncio.sleep(1)
-                
-            except Exception as e:
-                logger.error(f"Error sending notification for {change.listing_id}: {e}")
+        if not changes:
+            return
+        
+        # Создаем саммари всех изменений
+        new_count = sum(1 for c in changes if c.change_type == 'new')
+        removed_count = sum(1 for c in changes if c.change_type == 'removed')
+        price_change_count = sum(1 for c in changes if c.change_type == 'price_change')
+        
+        # Отправляем одно сообщение с саммари
+        await self.telegram.send_changes_summary(changes, new_count, removed_count, price_change_count)
+        
+        # Небольшая задержка
+        await asyncio.sleep(1)
     
     async def run_monitor_cycle(self):
         """Запускает один цикл мониторинга"""
