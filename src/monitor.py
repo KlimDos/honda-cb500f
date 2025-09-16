@@ -252,6 +252,81 @@ class CB500Monitor:
         # Небольшая задержка
         await asyncio.sleep(1)
     
+    async def send_no_changes_summary(self, listings: List[Dict[str, Any]]):
+        """Отправляет детальную сводку когда нет изменений"""
+        try:
+            # Создаем детальную сводку как в view_database.py
+            summary_text = self.create_detailed_summary(listings)
+            
+            # Отправляем сводку в Telegram
+            await self.telegram.send_message(f"📊 Детальная сводка (изменений нет)\n\n{summary_text}")
+            
+        except Exception as e:
+            logger.error(f"Error sending no changes summary: {e}")
+    
+    def create_detailed_summary(self, listings: List[Dict[str, Any]]) -> str:
+        """Создает детальную сводку объявлений как в view_database.py"""
+        if not listings:
+            return "📭 Объявлений не найдено"
+        
+        # Группировка по регионам
+        regions = {}
+        for listing in listings:
+            region = listing.get('search_region', 'Unknown')
+            if region not in regions:
+                regions[region] = 0
+            regions[region] += 1
+        
+        # Создаем текст сводки
+        summary = f"📊 СВОДКА БАЗЫ ДАННЫХ CB500F\n"
+        summary += "=" * 30 + "\n"
+        summary += f"Всего объявлений: {len(listings)}\n\n"
+        
+        if regions:
+            summary += "По регионам:\n"
+            for region, count in sorted(regions.items()):
+                summary += f"  {region}: {count}\n"
+            summary += "\n"
+        
+        summary += "📋 ДЕТАЛЬНЫЙ СПИСОК ОБЪЯВЛЕНИЙ\n\n"
+        
+        # Добавляем детали каждого объявления (с ограничением размера)
+        for i, listing in enumerate(listings, 1):
+            # Проверяем, не превысили ли лимит Telegram (4096 символов)
+            if len(summary) > 3500:  # Оставляем запас
+                remaining = len(listings) - i + 1
+                summary += f"... и еще {remaining} объявлений\n"
+                summary += f"📱 Полный список: /app/view_database.py --detailed"
+                break
+                
+            summary += f"{'='*40}\n"
+            summary += f"{i}. ID: {listing.get('id', 'N/A')}\n"
+            
+            # Сокращаем длинные заголовки
+            title = listing.get('title', 'N/A')
+            if len(title) > 50:
+                title = title[:47] + "..."
+            summary += f"   Заголовок: {title}\n"
+            
+            summary += f"   Цена: {listing.get('price_text', 'N/A')}\n"
+            summary += f"   Локация: {listing.get('location', 'N/A')}\n"
+            summary += f"   Регион: {listing.get('search_region', 'N/A')}\n"
+            
+            # Добавляем время последнего скрапинга
+            if 'scraped_at' in listing:
+                summary += f"   Найдено: {listing['scraped_at']}\n"
+            
+            # Добавляем URL (сокращенный)
+            if 'url' in listing:
+                url = listing['url']
+                if len(url) > 40:
+                    url = url[:40] + "..."
+                summary += f"   URL: {url}\n"
+            
+            summary += "\n"
+        
+        return summary
+    
     async def run_monitor_cycle(self):
         """Запускает один цикл мониторинга"""
         timestamp = datetime.now()
@@ -282,6 +357,8 @@ class CB500Monitor:
                 await self.send_change_notifications(changes)
             else:
                 logger.info("No changes detected")
+                # Отправляем детальную сводку когда нет изменений
+                await self.send_no_changes_summary(new_listings)
             
             # Отправляем сводку (раз в день в 9 утра)
             if timestamp.hour == 9 and timestamp.minute < 5:

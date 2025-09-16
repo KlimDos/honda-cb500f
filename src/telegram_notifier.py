@@ -126,6 +126,10 @@ class TelegramNotifier:
             logger.error(f"Error sending message: {e}")
             return False
     
+    async def send_message(self, message: str):
+        """Публичный метод для отправки произвольного сообщения"""
+        return await self._send_message(message)
+    
     async def send_new_listing(self, listing: Dict[str, Any]):
         """Отправляет уведомление о новом объявлении"""
         info = self._format_listing_info(listing)
