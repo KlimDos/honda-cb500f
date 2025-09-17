@@ -36,9 +36,8 @@ jobs:
       with:
         images: ${{ env.REGISTRY }}/${{ secrets.DOCKERHUB_USERNAME }}/cb500-monitor
         tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=latest
+          type=sha
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
