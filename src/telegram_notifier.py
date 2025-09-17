@@ -98,6 +98,46 @@ class TelegramNotifier:
         
         return "\n".join(info_lines)
     
+    def _format_listing_info_markdown(self, listing: Dict[str, Any]) -> str:
+        """Форматирует информацию об объявлении с Markdown"""
+        title = listing.get('title', 'N/A')
+        price_text = listing.get('price_text', 'N/A')
+        location = listing.get('location', 'N/A')
+        listed_date = listing.get('listed_date', 'N/A')
+        
+        # Извлекаем структурированную информацию
+        all_text = f"{title} {price_text}"
+        price = self._extract_price(all_text)
+        year = self._extract_year(all_text)
+        
+        # Определяем модель
+        text_lower = all_text.lower()
+        if 'cb500x' in text_lower or 'cb 500x' in text_lower:
+            model = "CB500X"
+        elif 'cb500f' in text_lower or 'cb 500f' in text_lower:
+            model = "CB500F"
+        else:
+            model = "CB500F/X"
+        
+        # Форматируем с Markdown
+        info_lines = []
+        
+        if year and price:
+            info_lines.append(f"🏍 *{year} Honda {model}* - `${price:,.0f}`")
+        elif price:
+            info_lines.append(f"🏍 *Honda {model}* - `${price:,.0f}`")
+        else:
+            info_lines.append(f"🏍 _{title}_")
+            if price_text != title:
+                info_lines.append(f"💰 {price_text}")
+        
+        info_lines.append(f"📍 {location}")
+        
+        if listed_date and listed_date != 'N/A':
+            info_lines.append(f"📅 _{listed_date}_")
+        
+        return "\n".join(info_lines)
+    
     async def _send_message(self, message: str, parse_mode: str = None):
         """Отправляет сообщение в Telegram"""
         url = f"{self.api_url}/sendMessage"
@@ -127,8 +167,8 @@ class TelegramNotifier:
             return False
     
     async def send_message(self, message: str):
-        """Публичный метод для отправки произвольного сообщения"""
-        return await self._send_message(message)
+        """Публичный метод для отправки произвольного сообщения с Markdown"""
+        return await self._send_message(message, parse_mode='Markdown')
     
     async def send_new_listing(self, listing: Dict[str, Any]):
         """Отправляет уведомление о новом объявлении"""
@@ -156,32 +196,34 @@ class TelegramNotifier:
         await self._send_message(message)
     
     async def send_changes_summary(self, changes: List, new_count: int, removed_count: int, price_change_count: int):
-        """Отправляет сводку изменений одним сообщением"""
+        """Отправляет сводку изменений одним сообщением с Markdown форматированием"""
         summary_lines = [
-            "📊 СВОДКА ИЗМЕНЕНИЙ",
+            "📊 *СВОДКА ИЗМЕНЕНИЙ*",
             ""
         ]
         
         if new_count > 0:
-            summary_lines.append(f"🆕 Новых объявлений: {new_count}")
+            summary_lines.append(f"🆕 *Новых объявлений:* `{new_count}`")
             
             # Добавляем детали новых объявлений
             for change in changes:
                 if change.change_type == 'new':
                     listing = change.new_data
-                    info = self._format_listing_info(listing)
+                    info = self._format_listing_info_markdown(listing)
                     url = listing.get('url', '')
-                    summary_lines.append(f"")
+                    summary_lines.append("")
                     summary_lines.append(info)
-                    summary_lines.append(f"🔗 {url}")
+                    if url:
+                        clean_url = url.split('?')[0]
+                        summary_lines.append(f"🔗 [Открыть объявление]({clean_url})")
         
         if removed_count > 0:
-            summary_lines.append(f"")
-            summary_lines.append(f"❌ Удаленных объявлений: {removed_count}")
+            summary_lines.append("")
+            summary_lines.append(f"❌ *Удаленных объявлений:* `{removed_count}`")
         
         if price_change_count > 0:
-            summary_lines.append(f"")
-            summary_lines.append(f"💰 Изменений цены: {price_change_count}")
+            summary_lines.append("")
+            summary_lines.append(f"💰 *Изменений цены:* `{price_change_count}`")
             
             # Добавляем детали изменений цены
             for change in changes:
@@ -191,10 +233,10 @@ class TelegramNotifier:
                     
                     if old_price and new_price:
                         direction = "📈" if new_price > old_price else "📉"
-                        summary_lines.append(f"{direction} ${old_price:,.0f} → ${new_price:,.0f}")
+                        summary_lines.append(f"{direction} `${old_price:,.0f}` → `${new_price:,.0f}`")
         
         message = "\n".join(summary_lines)
-        await self._send_message(message)
+        await self._send_message(message, parse_mode='Markdown')
     
     async def send_price_change(self, old_listing: Dict[str, Any], new_listing: Dict[str, Any], price_diff: float):
         """Отправляет уведомление об изменении цены"""

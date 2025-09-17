@@ -265,9 +265,9 @@ class CB500Monitor:
             logger.error(f"Error sending no changes summary: {e}")
     
     def create_detailed_summary(self, listings: List[Dict[str, Any]]) -> str:
-        """Создает детальную сводку объявлений как в view_database.py"""
+        """Создает детальную сводку объявлений с правильным форматированием Telegram"""
         if not listings:
-            return "📭 Объявлений не найдено"
+            return "📭 *Объявлений не найдено*"
         
         # Группировка по регионам
         regions = {}
@@ -277,51 +277,93 @@ class CB500Monitor:
                 regions[region] = 0
             regions[region] += 1
         
-        # Создаем текст сводки
-        summary = f"📊 СВОДКА БАЗЫ ДАННЫХ CB500F\n"
-        summary += "=" * 30 + "\n"
-        summary += f"Всего объявлений: {len(listings)}\n\n"
+        # Создаем текст сводки с Markdown форматированием
+        summary = f"📊 *СВОДКА БАЗЫ ДАННЫХ CB500F*\n"
+        summary += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        summary += f"🏍 *Всего объявлений:* `{len(listings)}`\n\n"
         
         if regions:
-            summary += "По регионам:\n"
+            summary += "📍 *По регионам:*\n"
             for region, count in sorted(regions.items()):
-                summary += f"  {region}: {count}\n"
+                summary += f"  • {region}: `{count}`\n"
             summary += "\n"
         
-        summary += "📋 ДЕТАЛЬНЫЙ СПИСОК ОБЪЯВЛЕНИЙ\n\n"
+        summary += "📋 *ДЕТАЛЬНЫЙ СПИСОК ОБЪЯВЛЕНИЙ*\n\n"
         
         # Добавляем детали каждого объявления (с ограничением размера)
         for i, listing in enumerate(listings, 1):
             # Проверяем, не превысили ли лимит Telegram (4096 символов)
-            if len(summary) > 3500:  # Оставляем запас
+            if len(summary) > 3200:  # Оставляем больше запаса
                 remaining = len(listings) - i + 1
-                summary += f"... и еще {remaining} объявлений\n"
-                summary += f"📱 Полный список: /app/view_database.py --detailed"
+                summary += f"... и еще *{remaining}* объявлений\n"
+                summary += f"� _Полный список: kubectl exec ... -- python /app/view_database.py --detailed_"
                 break
                 
-            summary += f"{'='*40}\n"
-            summary += f"{i}. ID: {listing.get('id', 'N/A')}\n"
+            summary += f"🏍 *{i}. "
             
-            # Сокращаем длинные заголовки
+            # Извлекаем правильный ID
+            listing_id = listing.get('id') or listing.get('listing_id') or 'N/A'
+            summary += f"ID:* `{listing_id}`\n"
+            
+            # Сокращаем длинные заголовки и улучшаем форматирование
             title = listing.get('title', 'N/A')
-            if len(title) > 50:
-                title = title[:47] + "..."
-            summary += f"   Заголовок: {title}\n"
+            if title and title != 'N/A':
+                if len(title) > 60:
+                    title = title[:57] + "..."
+                # Попытка извлечь год и модель из заголовка
+                year_match = re.search(r'(20\d{2})', title)
+                model_match = re.search(r'(CB\s*500[FX]?)', title, re.IGNORECASE)
+                
+                if year_match and model_match:
+                    summary += f"📅 *{year_match.group(1)} Honda {model_match.group(1).upper()}*\n"
+                else:
+                    summary += f"🏷 _{title}_\n"
             
-            summary += f"   Цена: {listing.get('price_text', 'N/A')}\n"
-            summary += f"   Локация: {listing.get('location', 'N/A')}\n"
-            summary += f"   Регион: {listing.get('search_region', 'N/A')}\n"
+            # Цена с лучшим форматированием
+            price = listing.get('price_text', 'N/A')
+            if price and price != 'N/A':
+                # Попытка извлечь основную цену
+                price_match = re.search(r'\$[\d,]+', price)
+                if price_match:
+                    summary += f"💰 *{price_match.group()}*\n"
+                else:
+                    summary += f"💰 {price}\n"
             
-            # Добавляем время последнего скрапинга
-            if 'scraped_at' in listing:
-                summary += f"   Найдено: {listing['scraped_at']}\n"
+            # Локация
+            location = listing.get('location', 'N/A')
+            if location and location != 'N/A':
+                summary += f"📍 {location}\n"
             
-            # Добавляем URL (сокращенный)
-            if 'url' in listing:
-                url = listing['url']
-                if len(url) > 40:
-                    url = url[:40] + "..."
-                summary += f"   URL: {url}\n"
+            # Регион поиска
+            region = listing.get('search_region', 'N/A')
+            if region and region != 'N/A':
+                summary += f"🗺 _{region}_\n"
+            
+            # Время в человеческом формате
+            scraped_at = listing.get('scraped_at')
+            if scraped_at:
+                try:
+                    if isinstance(scraped_at, (int, float)):
+                        # Unix timestamp
+                        dt = datetime.fromtimestamp(scraped_at)
+                    else:
+                        # Строка даты
+                        dt = datetime.fromisoformat(str(scraped_at).replace('Z', '+00:00'))
+                    
+                    formatted_time = dt.strftime('%d.%m.%Y %H:%M')
+                    summary += f"⏰ {formatted_time}\n"
+                except:
+                    summary += f"⏰ _{scraped_at}_\n"
+            
+            # Рабочая ссылка
+            url = listing.get('url')
+            if url:
+                # Убираем лишние параметры из URL для чистоты
+                clean_url = url.split('?')[0]
+                if '/marketplace/item/' in clean_url:
+                    summary += f"🔗 [Открыть объявление]({clean_url})\n"
+                else:
+                    summary += f"🔗 {clean_url}\n"
             
             summary += "\n"
         
