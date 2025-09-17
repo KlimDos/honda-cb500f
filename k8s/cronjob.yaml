@@ -22,7 +22,7 @@ spec:
           restartPolicy: Never
           containers:
           - name: monitor
-            image: klimdos/cb500-monitor:latest  # Будет собираться GitHub Actions
+            image: klimdos/cb500-monitor:latest
             imagePullPolicy: Always
             
             env:

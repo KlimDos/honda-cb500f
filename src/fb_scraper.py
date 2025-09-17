@@ -18,7 +18,7 @@ from playwright.async_api import async_playwright, Page, BrowserContext
 # Константы
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
 ANCHOR_SELECTOR = "a[href*='/marketplace/item/']"
@@ -293,10 +293,26 @@ class FacebookMarketplaceScraper:
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=True,
-                args=["--disable-blink-features=AutomationControlled"]
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-web-security",
+                    "--disable-features=VizDisplayCompositor",
+                    "--disable-extensions",
+                    "--disable-plugins",
+                    "--disable-images",  # Ускоряет загрузку
+                    "--disable-javascript"  # Минимум JS для стабильности
+                ]
             )
             
-            context = await browser.new_context(user_agent=USER_AGENT)
+            context = await browser.new_context(
+                user_agent=USER_AGENT,
+                viewport={'width': 1920, 'height': 1080},
+                java_script_enabled=False,  # Отключаем JS для стабильности
+                locale='en-US'
+            )
             
             # Применяем cookies
             if self.cookies:
@@ -304,13 +320,32 @@ class FacebookMarketplaceScraper:
             
             page = await context.new_page()
             
+            # Дополнительная анти-детекция
+            await page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined,
+                });
+                
+                window.chrome = {
+                    runtime: {},
+                };
+                
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5],
+                });
+                
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en'],
+                });
+            """)
+            
             try:
-                # Переходим на страницу
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await asyncio.sleep(3)
+                # Переходим на страницу с большим таймаутом
+                await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                await asyncio.sleep(5)  # Увеличенная задержка
                 
                 # Собираем данные
-                listings = await self._scroll_and_collect(page, max_scrolls=3, verbose=verbose)
+                listings = await self._scroll_and_collect(page, max_scrolls=2, delay=3.0, verbose=verbose)
                 
                 # Конвертируем в словари
                 return [listing.to_dict() for listing in listings]
