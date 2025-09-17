@@ -1,7 +1,9 @@
-# Используем официальный образ Python
-FROM python:3.11-slim
+# Двухфазная сборка CB500F Monitor
 
-# Устанавливаем системные зависимости для Playwright
+# === ФАЗА 1: Установка зависимостей ===
+FROM python:3.11-slim AS deps
+
+# Системные зависимости для Playwright
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -22,39 +24,42 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем пользователя
-RUN groupadd -g 1000 appuser && \
-    useradd -m -u 1000 -g 1000 appuser
-
-# Создаем рабочую директорию
-WORKDIR /app
-
-# Копируем requirements
+# Python зависимости
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and browsers as appuser
-RUN pip install playwright
-USER appuser
+# Установка Playwright браузеров
 RUN playwright install chromium
-USER root
 
-# Копируем исходный код
+# === ФАЗА 2: Приложение ===
+FROM python:3.11-slim
+
+# Копируем системные зависимости из первой фазы
+COPY --from=deps /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu/
+COPY --from=deps /usr/share/ca-certificates/ /usr/share/ca-certificates/
+COPY --from=deps /etc/ssl/ /etc/ssl/
+
+# Копируем Python пакеты
+COPY --from=deps /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=deps /usr/local/bin/ /usr/local/bin/
+
+# Копируем Playwright браузеры
+COPY --from=deps /root/.cache/ms-playwright/ /root/.cache/ms-playwright/
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем код приложения
 COPY src/ ./src/
+COPY src/view_database.py ./view_database.py
 
-# Создаем директорию для данных и настраиваем права
+# Создаем директорию для данных
 RUN mkdir -p /app/data
-RUN chown -R appuser:appuser /app
 
-# Устанавливаем переменные окружения
+# Переменные окружения
+ENV PYTHONPATH=/app/src
 ENV DATA_DIR=/app/data
 ENV COOKIES_PATH=/app/data/cookies.json
-ENV PYTHONPATH=/app/src
 
-# Переключаемся на пользователя appuser
-USER appuser
-
-# Команда по умолчанию
+# Запуск
 CMD ["python", "src/monitor.py"]
